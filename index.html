@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fake News Detector | AI Powered</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Fake News Detector</h1>
+        <p class="subtitle">Enter a news headline or article snippet below to verify its authenticity using AI.</p>
+        
+        <div class="examples">
+            <button class="example-btn" onclick="setExample('breaking')">Fake: Space travel</button>
+            <button class="example-btn" onclick="setExample('politics')">Real: Local election</button>
+            <button class="example-btn" onclick="setExample('health')">Fake: Miracle cure</button>
+        </div>
+
+        <div class="input-group">
+            <textarea id="newsText" placeholder="Paste news content here..."></textarea>
+        </div>
+        
+        <div class="actions">
+            <button class="btn" onclick="predict()">Check Authenticity</button>
+            <button class="btn btn-secondary" onclick="clearAll()">Clear</button>
+        </div>
+        
+        <div id="loader" class="loader"></div>
+        
+        <div id="result" class="result-card">
+            <i id="resultIcon" class="fas"></i>
+            <h2 id="resultText"></h2>
+            
+            <div class="confidence-container">
+                <div class="confidence-label">
+                    <span>AI Confidence Score</span>
+                    <span id="confidenceValue">0%</span>
+                </div>
+                <div class="confidence-bar-bg">
+                    <div id="confidenceBar" class="confidence-bar-fill"></div>
+                </div>
+            </div>
+
+            <div class="indicators">
+                <h4>Key Indicators Detected:</h4>
+                <div id="tagContainer" class="tag-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const examples = {
+            'breaking': 'Scientists have discovered massive cities built by ancient civilizations on the surface of Mars, according to unverified leak.',
+            'politics': 'The city council voted unanimously to approve the new park project in the downtown district after months of debate.',
+            'health': 'This simple spice in your kitchen can cure all forms of cancer in just 24 hours, doctors don\'t want you to know!'
+        };
+
+        function setExample(key) {
+            document.getElementById('newsText').value = examples[key];
+        }
+
+        function clearAll() {
+            document.getElementById('newsText').value = '';
+            document.getElementById('result').style.display = 'none';
+        }
+
+        async function predict() {
+            const text = document.getElementById('newsText').value;
+            const resultDiv = document.getElementById('result');
+            const loader = document.getElementById('loader');
+            const btn = document.querySelector('.btn');
+            const confValue = document.getElementById('confidenceValue');
+            const confBar = document.getElementById('confidenceBar');
+            const tagContainer = document.getElementById('tagContainer');
+
+            if (!text.trim()) {
+                alert("Please enter some text!");
+                return;
+            }
+
+            // Reset and show loader
+            resultDiv.style.display = 'none';
+            resultDiv.classList.remove('real', 'fake');
+            tagContainer.innerHTML = '';
+            loader.style.display = 'block';
+            btn.disabled = true;
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: text })
+                });
+                
+                const data = await response.json();
+                
+                loader.style.display = 'none';
+                btn.disabled = false;
+                resultDiv.style.display = 'block';
+
+                const icon = document.getElementById('resultIcon');
+                const title = document.getElementById('resultText');
+                
+                // Set text and class
+                if (data.prediction === 'Fake') {
+                    resultDiv.classList.add('fake');
+                    icon.className = 'fas fa-circle-exclamation';
+                    title.innerText = 'Potentially Fake News';
+                } else {
+                    resultDiv.classList.add('real');
+                    icon.className = 'fas fa-circle-check';
+                    title.innerText = 'Likely Real News';
+                }
+
+                // Confidence
+                confValue.innerText = data.confidence + '%';
+                setTimeout(() => {
+                    confBar.style.width = data.confidence + '%';
+                }, 100);
+
+                // Indicators
+                data.indicators.forEach(word => {
+                    const tag = document.createElement('span');
+                    tag.className = 'tag';
+                    tag.innerText = word;
+                    tagContainer.appendChild(tag);
+                });
+
+            } catch (error) {
+                console.error(error);
+                alert("An error occurred. Make sure the server is running.");
+                loader.style.display = 'none';
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
